@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Upload, Camera, Image, Video, FileText, 
   Volume2, Calendar, MapPin, Tag, User, Plus, 
-  Trash2, Check, Loader2, AlertTriangle, Info
+  Trash2, Check, Loader2, AlertTriangle, Info, Sparkles
 } from 'lucide-react';
 import { TouchOptimized } from '../ui/TouchOptimized';
 import { useDeviceDetection } from '../../hooks/useDeviceDetection';
