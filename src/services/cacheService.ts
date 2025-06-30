@@ -1,28 +1,52 @@
 import { createClient } from 'redis';
 import { config } from 'dotenv';
-import logger from '../utils/logger';
+import { logger } from '../utils/logger';
 
 config();
 
-let redisClient: ReturnType<typeof createClient>;
+let redisClient: ReturnType<typeof createClient> | null = null;
+let redisConnectionAttempted = false;
 
 export const initializeRedis = async () => {
+  if (redisConnectionAttempted) {
+    return redisClient;
+  }
+  
+  redisConnectionAttempted = true;
+  
   try {
     redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        connectTimeout: 5000,
+        lazyConnect: true
+      }
     });
 
     redisClient.on('error', (err) => {
       logger.error('Redis Client Error:', err);
+      // Don't throw in development mode
+      if (process.env.NODE_ENV === 'production') {
+        throw err;
+      }
+    });
+
+    redisClient.on('connect', () => {
+      logger.info('Redis connected successfully');
+    });
+
+    redisClient.on('disconnect', () => {
+      logger.warn('Redis disconnected');
     });
 
     await redisClient.connect();
-    logger.info('Redis connected successfully');
     return redisClient;
   } catch (error) {
     logger.error('Failed to connect to Redis:', error);
+    redisClient = null;
+    
     // Continue without Redis in development
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV !== 'production') {
       logger.warn('Running without Redis cache in development mode');
       return null;
     }
@@ -33,12 +57,24 @@ export const initializeRedis = async () => {
 export class CacheService {
   private static instance: CacheService;
   private memoryCache: Map<string, { value: any; expiry: number }> = new Map();
+  private redisInitialized = false;
 
   constructor() {
     if (CacheService.instance) {
       return CacheService.instance;
     }
     CacheService.instance = this;
+  }
+
+  private async ensureRedisConnection() {
+    if (!this.redisInitialized) {
+      this.redisInitialized = true;
+      try {
+        await initializeRedis();
+      } catch (error) {
+        logger.warn('Redis initialization failed, using memory cache only');
+      }
+    }
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -53,6 +89,7 @@ export class CacheService {
       }
 
       // Try Redis if available
+      await this.ensureRedisConnection();
       if (redisClient && redisClient.isOpen) {
         const value = await redisClient.get(key);
         if (value) {
@@ -82,6 +119,7 @@ export class CacheService {
       });
 
       // Store in Redis if available
+      await this.ensureRedisConnection();
       if (redisClient && redisClient.isOpen) {
         await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
       }
@@ -99,6 +137,7 @@ export class CacheService {
       this.memoryCache.delete(key);
 
       // Remove from Redis if available
+      await this.ensureRedisConnection();
       if (redisClient && redisClient.isOpen) {
         await redisClient.del(key);
       }
@@ -116,6 +155,7 @@ export class CacheService {
       this.memoryCache.clear();
 
       // Clear Redis if available
+      await this.ensureRedisConnection();
       if (redisClient && redisClient.isOpen) {
         await redisClient.flushAll();
       }
