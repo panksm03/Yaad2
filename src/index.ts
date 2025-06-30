@@ -9,8 +9,6 @@ import { setupRoutes } from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { logger } from './utils/logger';
-import { setupBullBoard } from './utils/bullBoard';
-import { initializeRedis } from './services/cacheService';
 
 // Load environment variables
 config();
@@ -32,16 +30,6 @@ app.use(compression()); // Compress responses
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } })); // HTTP request logging
-
-// Initialize services
-initializeRedis().catch(err => {
-  logger.error('Failed to initialize Redis:', err);
-});
-
-// Setup Bull Dashboard for queue monitoring (development only)
-if (process.env.NODE_ENV !== 'production') {
-  setupBullBoard(app);
-}
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
