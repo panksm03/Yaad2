@@ -9,7 +9,7 @@ let redisClient: ReturnType<typeof createClient>;
 export const initializeRedis = async () => {
   try {
     redisClient = createClient({
-      url: process.env.REDIS_URL
+      url: process.env.REDIS_URL || 'redis://localhost:6379'
     });
 
     redisClient.on('error', (err) => {
@@ -126,5 +126,16 @@ export class CacheService {
       return false;
     }
   }
-}
 
+  // Cleanup method for graceful shutdown
+  async disconnect(): Promise<void> {
+    try {
+      if (redisClient && redisClient.isOpen) {
+        await redisClient.disconnect();
+        logger.info('Redis disconnected successfully');
+      }
+    } catch (error) {
+      logger.error('Error disconnecting Redis:', error);
+    }
+  }
+}
