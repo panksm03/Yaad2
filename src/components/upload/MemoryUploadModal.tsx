@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  X, Upload, Camera, Image, Video, FileText, 
-  Volume2, Calendar, MapPin, Tag, User, Plus, 
+  X, Upload, Camera, Image, Video, 
+  FileText, Volume2, Calendar, MapPin, Tag, User, Plus, 
   Trash2, Check, Loader2, AlertTriangle, Info, Sparkles
 } from 'lucide-react';
 import { TouchOptimized } from '../ui/TouchOptimized';
@@ -85,10 +85,23 @@ export function MemoryUploadModal({
   const handleTypeSelect = (type: 'photo' | 'video' | 'audio' | 'story') => {
     setSelectedType(type);
     
-    if (type === 'photo' && (isMobile || isNative)) {
-      setShowCamera(true);
-    } else {
-      setActiveStep('upload');
+    switch (type) {
+      case 'photo':
+        if (isNative) {
+          handleNativeCapture();
+        } else {
+          setShowCamera(true);
+        }
+        break;
+      case 'video':
+        setActiveStep('upload');
+        break;
+      case 'audio':
+        setActiveStep('upload');
+        break;
+      case 'story':
+        setActiveStep('upload');
+        break;
     }
   };
   
@@ -169,6 +182,12 @@ export function MemoryUploadModal({
     setShowCamera(false);
     setActiveStep('details');
     setTitle(`Photo ${new Date().toLocaleDateString()}`);
+  };
+  
+  const handleNativeCapture = async () => {
+    // Implementation for native camera capture
+    console.log('Native capture not implemented');
+    setActiveStep('upload');
   };
   
   const handleNativeCameraCapture = (dataUrl: string) => {
@@ -702,7 +721,7 @@ export function MemoryUploadModal({
           <div className="mt-2">
             <p className="text-xs text-gray-600 mb-1">Suggested tags:</p>
             <div className="flex flex-wrap gap-1">
-              {['Family', 'Vacation', 'Birthday', 'Holiday', 'School', 'Friends'].map((tag) => (
+              {['Family', 'Vacation', 'Beach', 'Summer', 'Holiday', 'Birthday'].map((tag) => (
                 <TouchOptimized key={tag}>
                   <button
                     onClick={() => {

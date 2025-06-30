@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Camera, Upload as UploadIcon, Mic, FileText, X } from 'lucide-react';
+import { Plus, Camera, Upload as UploadIcon, Mic, FileText, X, ChevronRight, Calendar, MessageCircle, Upload, Star, ArrowRight, Video, FileText as FileTextIcon, Sparkles, User, Brain, UserPlus } from 'lucide-react';
 import { TouchOptimized } from '../ui/TouchOptimized';
 import { MemoryUploadModal } from './MemoryUploadModal';
 import { useDeviceDetection } from '../../hooks/useDeviceDetection';
@@ -68,7 +68,7 @@ export function UploadButton({
                     color: 'bg-purple-600 hover:bg-purple-700'
                   },
                   {
-                    icon: FileText,
+                    icon: FileTextIcon,
                     label: 'Write Story',
                     type: 'story',
                     color: 'bg-orange-600 hover:bg-orange-700'

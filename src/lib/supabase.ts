@@ -244,8 +244,6 @@ export const saveOnboardingData = async (userId: string, onboardingData: any) =>
     
     // If first memory was uploaded
     if (onboardingData.firstMemory?.file) {
-      // Handle memory upload logic here
-      // This would typically involve uploading to storage and creating a memory record
       const file = onboardingData.firstMemory.file;
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
