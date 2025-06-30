@@ -99,6 +99,7 @@ export function useAuth() {
         await supabase.from('profiles').insert({
           id: data.user.id,
           full_name: fullName,
+          email: email,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -135,6 +136,8 @@ export function useAuth() {
     } else {
       // Remove user from localStorage
       localStorage.removeItem('memorymesh_user');
+      localStorage.removeItem('memorymesh_profile');
+      localStorage.removeItem('memorymesh_onboarding_completed');
       setUser(null);
       
       return { error: null };

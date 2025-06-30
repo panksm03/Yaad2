@@ -189,3 +189,68 @@ export const getFamilyMemories = async (familyId: string) => {
     
   return { data, error };
 }
+
+// Helper function to update user profile
+export const updateUserProfile = async (userId: string, profileData: any) => {
+  if (!supabase) {
+    console.warn('Supabase client not initialized. Using mock data instead.');
+    return { data: null, error: new Error('Supabase client not initialized') };
+  }
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(profileData)
+    .eq('id', userId)
+    .select();
+  
+  return { data, error };
+}
+
+// Helper function to save onboarding data
+export const saveOnboardingData = async (userId: string, onboardingData: any) => {
+  if (!supabase) {
+    console.warn('Supabase client not initialized. Using mock data instead.');
+    return { success: true, error: null };
+  }
+  
+  try {
+    // Update user profile with onboarding data
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        full_name: onboardingData.profile.name,
+        avatar_url: onboardingData.profile.profilePhoto,
+        // Add other profile fields as needed
+      })
+      .eq('id', userId);
+    
+    if (profileError) throw profileError;
+    
+    // If family creation was selected
+    if (onboardingData.family.action === 'create' && onboardingData.family.familyName) {
+      const { error: familyError } = await supabase
+        .from('families')
+        .insert([
+          {
+            name: onboardingData.family.familyName,
+            description: 'Created during onboarding',
+            created_by: userId,
+            privacy_level: onboardingData.family.privacyLevel
+          }
+        ]);
+      
+      if (familyError) throw familyError;
+    }
+    
+    // If first memory was uploaded
+    if (onboardingData.firstMemory?.file) {
+      // Handle memory upload logic here
+      // This would typically involve uploading to storage and creating a memory record
+    }
+    
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Error saving onboarding data:', error);
+    return { success: false, error };
+  }
+}

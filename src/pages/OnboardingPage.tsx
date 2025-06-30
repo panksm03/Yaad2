@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OnboardingFlow, OnboardingData } from '../components/onboarding/OnboardingFlow';
 import { useAuth } from '../hooks/useAuth';
+import { saveOnboardingData } from '../lib/supabase';
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -25,6 +26,11 @@ export function OnboardingPage() {
       // Mark onboarding as completed
       localStorage.setItem('memorymesh_onboarding_completed', 'true');
       localStorage.setItem('memorymesh_onboarding_data', JSON.stringify(data));
+      
+      // Save to Supabase if available
+      if (user) {
+        await saveOnboardingData(user.id, data);
+      }
       
       // Redirect to dashboard
       navigate('/dashboard', { replace: true });
