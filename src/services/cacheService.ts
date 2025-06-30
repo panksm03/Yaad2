@@ -128,4 +128,3 @@ export class CacheService {
   }
 }
 
-export { CacheService }
