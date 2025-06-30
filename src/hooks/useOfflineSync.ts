@@ -79,7 +79,55 @@ export function useOfflineSync() {
       try {
         if (supabase) {
           if (item.type === 'memory') {
-            await supabase.from('memories').insert(item.data);
+            // Upload memory to Supabase
+            const { file, title, description, date, user_id, family_id } = item.data;
+            
+            if (file) {
+              // First upload the file to storage
+              const fileExt = file.name.split('.').pop();
+              const fileName = `${user_id}/${Date.now()}.${fileExt}`;
+              const filePath = `memories/${fileName}`;
+              
+              const { error: uploadError } = await supabase.storage
+                .from('memory_media')
+                .upload(filePath, file);
+                
+              if (uploadError) {
+                console.error('Error uploading file:', uploadError);
+                continue;
+              }
+              
+              // Get public URL
+              const { data: urlData } = supabase.storage
+                .from('memory_media')
+                .getPublicUrl(filePath);
+                
+              const fileUrl = urlData.publicUrl;
+              
+              // Create memory record
+              const { error: memoryError } = await supabase
+                .from('memories')
+                .insert([
+                  {
+                    family_id: family_id,
+                    title,
+                    description,
+                    memory_type: file.type.startsWith('image/') ? 'photo' : 
+                                file.type.startsWith('video/') ? 'video' : 
+                                file.type.startsWith('audio/') ? 'audio' : 'story',
+                    file_url: fileUrl,
+                    thumbnail_url: file.type.startsWith('image/') ? fileUrl : null,
+                    date_taken: date,
+                    created_by: user_id,
+                    is_private: false
+                  }
+                ]);
+                
+              if (memoryError) {
+                console.error('Error creating memory record:', memoryError);
+                continue;
+              }
+            }
           } else if (item.type === 'family_member') {
             await supabase.from('family_members').insert(item.data);
           }

@@ -9,6 +9,8 @@ import { useDeviceDetection } from '../../hooks/useDeviceDetection';
 import { useNativeFeatures } from '../../hooks/useNativeFeatures';
 import { CameraCapture } from './CameraCapture';
 import { NativeCameraCapture } from './NativeCameraCapture';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
 interface MemoryUploadModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ export function MemoryUploadModal({
 }: MemoryUploadModalProps) {
   const { isMobile, platform } = useDeviceDetection();
   const { isNative } = useNativeFeatures();
+  const { user } = useAuth();
   
   const [activeStep, setActiveStep] = useState<'type' | 'upload' | 'details'>('type');
   const [selectedType, setSelectedType] = useState<'photo' | 'video' | 'audio' | 'story' | null>(initialType || null);
@@ -41,6 +44,7 @@ export function MemoryUploadModal({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [familyId, setFamilyId] = useState<string>('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -58,8 +62,23 @@ export function MemoryUploadModal({
       setNewTag('');
       setPeopleTagged([]);
       setError(null);
+      
+      // Get user's family ID
+      if (user && supabase) {
+        supabase
+          .from('family_members')
+          .select('family_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .single()
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setFamilyId(data.family_id);
+            }
+          });
+      }
     }
-  }, [isOpen, initialType]);
+  }, [isOpen, initialType, user]);
   
   if (!isOpen) return null;
   
@@ -214,6 +233,29 @@ export function MemoryUploadModal({
       return;
     }
     
+    if (!familyId && user) {
+      // Try to get family ID one more time
+      try {
+        const { data } = await supabase
+          .from('family_members')
+          .select('family_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .single();
+          
+        if (data) {
+          setFamilyId(data.family_id);
+        } else {
+          setError('You need to be part of a family to upload memories');
+          return;
+        }
+      } catch (err) {
+        console.error('Error getting family ID:', err);
+        setError('Failed to determine your family. Please try again.');
+        return;
+      }
+    }
+    
     setIsUploading(true);
     setError(null);
     
@@ -224,11 +266,126 @@ export function MemoryUploadModal({
         date,
         location,
         tags,
-        peopleTagged
+        peopleTagged,
+        familyId
       };
       
-      await onUpload(files, data);
-      onClose();
+      // If Supabase is available, upload directly
+      if (supabase && user && familyId) {
+        for (const fileObj of files) {
+          const file = fileObj.file;
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+          const filePath = `memories/${fileName}`;
+          
+          // Upload to Supabase Storage
+          const { error: uploadError } = await supabase.storage
+            .from('memory_media')
+            .upload(filePath, file);
+            
+          if (uploadError) {
+            throw new Error(`Failed to upload file: ${uploadError.message}`);
+          }
+          
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('memory_media')
+            .getPublicUrl(filePath);
+            
+          const fileUrl = urlData.publicUrl;
+          
+          // Create memory record
+          const { error: memoryError } = await supabase
+            .from('memories')
+            .insert([
+              {
+                family_id: familyId,
+                title,
+                description,
+                memory_type: selectedType,
+                file_url: fileUrl,
+                thumbnail_url: selectedType === 'photo' ? fileUrl : null,
+                date_taken: date,
+                location,
+                created_by: user.id,
+                is_private: false
+              }
+            ]);
+            
+          if (memoryError) {
+            throw new Error(`Failed to create memory record: ${memoryError.message}`);
+          }
+          
+          // Add tags if any
+          if (tags.length > 0) {
+            // First, ensure tags exist
+            for (const tag of tags) {
+              // Check if tag exists
+              const { data: existingTags } = await supabase
+                .from('tags')
+                .select('id')
+                .eq('name', tag)
+                .eq('family_id', familyId);
+                
+              let tagId;
+              
+              if (!existingTags || existingTags.length === 0) {
+                // Create tag
+                const { data: newTag, error: tagError } = await supabase
+                  .from('tags')
+                  .insert([
+                    {
+                      name: tag,
+                      family_id: familyId,
+                      created_by: user.id
+                    }
+                  ])
+                  .select('id')
+                  .single();
+                  
+                if (tagError) {
+                  console.error('Error creating tag:', tagError);
+                  continue;
+                }
+                
+                tagId = newTag.id;
+              } else {
+                tagId = existingTags[0].id;
+              }
+              
+              // Get the memory ID
+              const { data: memories } = await supabase
+                .from('memories')
+                .select('id')
+                .eq('family_id', familyId)
+                .eq('title', title)
+                .eq('created_by', user.id)
+                .order('created_at', { ascending: false })
+                .limit(1);
+                
+              if (memories && memories.length > 0) {
+                const memoryId = memories[0].id;
+                
+                // Add tag to memory
+                await supabase
+                  .from('memory_tags')
+                  .insert([
+                    {
+                      memory_id: memoryId,
+                      tag_id: tagId
+                    }
+                  ]);
+              }
+            }
+          }
+        }
+        
+        onClose();
+      } else {
+        // Fall back to the provided onUpload function
+        await onUpload(files, data);
+        onClose();
+      }
     } catch (err) {
       console.error('Upload error:', err);
       setError('An error occurred during upload. Please try again.');

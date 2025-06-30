@@ -246,6 +246,56 @@ export const saveOnboardingData = async (userId: string, onboardingData: any) =>
     if (onboardingData.firstMemory?.file) {
       // Handle memory upload logic here
       // This would typically involve uploading to storage and creating a memory record
+      const file = onboardingData.firstMemory.file;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      const filePath = `memories/${fileName}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('memory_media')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('memory_media')
+        .getPublicUrl(filePath);
+        
+      const fileUrl = urlData.publicUrl;
+      
+      // Create memory record - we'll need to get the family ID first
+      const { data: families, error: familiesError } = await supabase
+        .from('families')
+        .select('id')
+        .eq('created_by', userId)
+        .limit(1);
+        
+      if (familiesError) throw familiesError;
+      
+      if (families && families.length > 0) {
+        const familyId = families[0].id;
+        
+        const { error: memoryError } = await supabase
+          .from('memories')
+          .insert([
+            {
+              family_id: familyId,
+              title: onboardingData.firstMemory.title,
+              description: onboardingData.firstMemory.description,
+              memory_type: file.type.startsWith('image/') ? 'photo' : 
+                          file.type.startsWith('video/') ? 'video' : 
+                          file.type.startsWith('audio/') ? 'audio' : 'story',
+              file_url: fileUrl,
+              thumbnail_url: file.type.startsWith('image/') ? fileUrl : null,
+              created_by: userId,
+              is_private: false
+            }
+          ]);
+          
+        if (memoryError) throw memoryError;
+      }
     }
     
     return { success: true, error: null };
