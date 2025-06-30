@@ -22,6 +22,8 @@
   "author": "Yaadein Team",
   "license": "MIT",
   "dependencies": {
+    "@bull-board/api": "^5.14.2",
+    "@bull-board/express": "^5.14.2",
     "@supabase/supabase-js": "^2.50.2",
     "axios": "^1.6.7",
     "bull": "^4.12.2",
