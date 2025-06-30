@@ -268,6 +268,7 @@ export function useAuth() {
       // Mock delete account functionality
       localStorage.removeItem('memorymesh_user');
       localStorage.removeItem('memorymesh_profile');
+      localStorage.removeItem('memorymesh_onboarding_completed');
       setUser(null);
       
       return { success: true, error: null };

@@ -27,7 +27,7 @@ export function OnboardingPage() {
       localStorage.setItem('memorymesh_onboarding_data', JSON.stringify(data));
       
       // Redirect to dashboard
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }

@@ -35,7 +35,14 @@ export function AuthPage() {
         // Wait for auth state to update
         setTimeout(() => {
           setIsProcessingCallback(false);
-          navigate('/dashboard', { replace: true });
+          // Check if user has completed onboarding
+          const hasCompletedOnboarding = localStorage.getItem('memorymesh_onboarding_completed') === 'true';
+          
+          if (hasCompletedOnboarding) {
+            navigate('/dashboard', { replace: true });
+          } else {
+            navigate('/onboarding', { replace: true });
+          }
         }, 2000);
       }
     };
@@ -46,7 +53,14 @@ export function AuthPage() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (user && !isProcessingCallback) {
-      navigate('/dashboard');
+      // Check if user has completed onboarding
+      const hasCompletedOnboarding = localStorage.getItem('memorymesh_onboarding_completed') === 'true';
+      
+      if (hasCompletedOnboarding) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate('/onboarding', { replace: true });
+      }
     }
   }, [user, navigate, isProcessingCallback]);
 
